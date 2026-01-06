@@ -104,6 +104,7 @@ func CollectIssues(taskCtx plugin.SubTaskContext) errors.Error {
 			query.Set("startAt", fmt.Sprintf("%v", reqData.Pager.Skip))
 			query.Set("maxResults", fmt.Sprintf("%v", reqData.Pager.Size))
 			query.Set("expand", "changelog")
+			query.Set("fields", "*all")
 			return query, nil
 		},
 		/*
