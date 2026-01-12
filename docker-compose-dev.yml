@@ -38,7 +38,7 @@ services:
       - postgres-storage:/var/lib/postgresql
     restart: always
     ports:
-      - 5432:5432
+      - 5433:5432
     environment:
       POSTGRES_DB: lake
       POSTGRES_USER: merico
@@ -79,7 +79,7 @@ services:
       - mysql
 
   devlake:
-    image: devlake.docker.scarf.sh/apache/devlake:latest
+    image: apache/devlake:local_build
     build:
       context: backend
       args:

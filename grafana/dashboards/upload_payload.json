@@ -1,4 +1,5 @@
 {
+  "dashboard": {
   "annotations": {
     "list": [
       {
@@ -2293,23 +2294,25 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 12,
-        "w": 24,
+        "h": 10,
+        "w": 12,
         "x": 0,
-        "y": 77
+        "y": 70
       },
       "id": 999,
       "options": {
         "footer": {
           "fields": "",
-          "reducer": ["sum"],
+          "reducer": [
+            "sum"
+          ],
           "show": false
         },
         "showHeader": true,
         "sortBy": [
           {
             "desc": true,
-            "displayName": "Jira Issues Resolved"
+            "displayName": "Commits"
           }
         ]
       },
@@ -2321,11 +2324,73 @@
           "group": [],
           "metricColumn": "none",
           "rawQuery": true,
-          "rawSql": "WITH \n_commits AS (\n  SELECT author_name, \n         count(distinct sha) as commit_count,\n         COALESCE(sum(additions), 0) as lines_added,\n         COALESCE(sum(deletions), 0) as lines_deleted\n  FROM commits c\n  JOIN repo_commits rc ON c.sha = rc.commit_sha\n  JOIN project_mapping pm ON rc.repo_id = pm.row_id\n  WHERE pm.project_name IN (${project}) AND $__timeFilter(authored_date)\n    AND c.message NOT LIKE 'Merge %' AND c.message NOT LIKE 'Merged %'\n  GROUP BY 1\n),\n_prs AS (\n  SELECT author_name, \n         count(*) as pr_opened,\n         sum(case when status = 'MERGED' then 1 else 0 end) as pr_merged,\n         COALESCE(sum(additions), 0) as pr_additions,\n         COALESCE(sum(deletions), 0) as pr_deletions\n  FROM pull_requests pr\n  JOIN project_mapping pm ON pr.base_repo_id = pm.row_id\n  WHERE pm.project_name IN (${project}) AND $__timeFilter(created_date)\n  GROUP BY 1\n),\n_jira_issues_resolved AS (\n  SELECT \n    i.assignee_name as author_name,\n    count(distinct i.id) as issues_resolved,\n    COALESCE(sum(i.story_point), 0) as story_points_delivered\n  FROM issues i\n  JOIN board_issues bi ON i.id = bi.issue_id\n  JOIN boards b ON bi.board_id = b.id\n  JOIN project_mapping pm ON b.id = pm.row_id\n  WHERE pm.project_name IN (${project})\n    AND i.status = 'DONE'\n    AND $__timeFilter(i.resolution_date)\n  GROUP BY 1\n),\n_bugs_fixed AS (\n  SELECT \n    i.assignee_name as author_name,\n    count(distinct i.id) as bugs_fixed\n  FROM issues i\n  JOIN board_issues bi ON i.id = bi.issue_id\n  JOIN boards b ON bi.board_id = b.id\n  JOIN project_mapping pm ON b.id = pm.row_id\n  WHERE pm.project_name IN (${project})\n    AND i.status = 'DONE'\n    AND i.type = 'BUG'\n    AND $__timeFilter(i.resolution_date)\n  GROUP BY 1\n),\n_cicd_metrics AS (\n  SELECT \n    c.author_name,\n    count(distinct p.id) as pipelines_triggered,\n    sum(case when p.result = 'SUCCESS' then 1 else 0 end) as pipelines_success,\n    sum(case when p.result = 'FAILURE' then 1 else 0 end) as pipelines_failed\n  FROM cicd_pipelines p\n  JOIN cicd_pipeline_commits pc ON p.id = pc.pipeline_id\n  JOIN commits c ON pc.commit_sha = c.sha\n  JOIN repo_commits rc ON c.sha = rc.commit_sha\n  JOIN project_mapping pm ON rc.repo_id = pm.row_id\n  WHERE pm.project_name IN (${project})\n    AND $__timeFilter(p.created_date)\n    AND c.message NOT LIKE 'Merge %' AND c.message NOT LIKE 'Merged %'\n  GROUP BY 1\n),\n_sonar_issues AS (\n  SELECT \n    cq.commit_author_email as author_email,\n    sum(case when cq.type = 'BUG' then 1 else 0 end) as sonar_bugs,\n    sum(case when cq.type = 'VULNERABILITY' then 1 else 0 end) as sonar_vulnerabilities,\n    sum(case when cq.type = 'CODE_SMELL' then 1 else 0 end) as sonar_code_smells,\n    sum(case when cq.type = 'SECURITY_HOTSPOT' then 1 else 0 end) as sonar_hotspots\n  FROM cq_issues cq\n  WHERE $__timeFilter(cq.created_date)\n  GROUP BY 1\n),\n_all_authors AS (\n    SELECT author_name FROM _commits \n    UNION SELECT author_name FROM _prs \n    UNION SELECT author_name FROM _jira_issues_resolved\n    UNION SELECT author_name FROM _cicd_metrics\n)\n\nSELECT \n  t.author_name as 'Engineer',\n  COALESCE(c.commit_count, 0) as 'Commits',\n  COALESCE(p.pr_opened, 0) as 'PRs Opened',\n  COALESCE(p.pr_merged, 0) as 'PRs Merged',\n  COALESCE(jr.issues_resolved, 0) as 'Jira Issues Resolved',\n  COALESCE(jr.story_points_delivered, 0) as 'Story Points',\n  COALESCE(bf.bugs_fixed, 0) as 'Bugs Fixed',\n  COALESCE(c.lines_added, 0) as 'Lines Added',\n  COALESCE(c.lines_deleted, 0) as 'Lines Deleted',\n  COALESCE(ci.pipelines_triggered, 0) as 'Pipelines',\n  COALESCE(ci.pipelines_success, 0) as 'CI Success',\n  COALESCE(ci.pipelines_failed, 0) as 'CI Failed',\n  COALESCE(sq.sonar_bugs, 0) as 'SQ Bugs',\n  COALESCE(sq.sonar_code_smells, 0) as 'SQ Smells',\n  COALESCE(sq.sonar_vulnerabilities, 0) as 'SQ Vulns'\nFROM _all_authors t\nLEFT JOIN _commits c ON t.author_name = c.author_name\nLEFT JOIN _prs p ON t.author_name = p.author_name\nLEFT JOIN _jira_issues_resolved jr ON t.author_name = jr.author_name\nLEFT JOIN _bugs_fixed bf ON t.author_name = bf.author_name\nLEFT JOIN _cicd_metrics ci ON t.author_name = ci.author_name\nLEFT JOIN _sonar_issues sq ON c.author_name = sq.author_email OR CONCAT(c.author_name, '@%') LIKE sq.author_email\nWHERE t.author_name IS NOT NULL AND t.author_name != ''\nORDER BY COALESCE(jr.issues_resolved, 0) DESC\nLIMIT 100",
+          "rawSql": "WITH \n_commits AS (\n  SELECT author_name, count(distinct sha) as commit_count\n  FROM commits c\n  JOIN repo_commits rc ON c.sha = rc.commit_sha\n  JOIN project_mapping pm ON rc.repo_id = pm.row_id\n  WHERE pm.project_name IN (${project}) AND $__timeFilter(authored_date)\n  GROUP BY 1\n),\n_prs AS (\n  SELECT author_name, \n         count(*) as pr_opened,\n         sum(case when status = 'MERGED' then 1 else 0 end) as pr_merged\n  FROM pull_requests pr\n  JOIN project_mapping pm ON pr.base_repo_id = pm.row_id\n  WHERE pm.project_name IN (${project}) AND $__timeFilter(created_date)\n  GROUP BY 1\n),\n_jira_issues_resolved AS (\n  SELECT \n    i.assignee_name as author_name,\n    count(distinct i.id) as issues_resolved,\n    COALESCE(sum(i.story_point), 0) as story_points_delivered\n  FROM issues i\n  JOIN board_issues bi ON i.id = bi.issue_id\n  JOIN boards b ON bi.board_id = b.id\n  JOIN project_mapping pm ON b.id = pm.row_id\n  WHERE pm.project_name IN (${project})\n    AND i.status = 'DONE'\n    AND $__timeFilter(i.resolution_date)\n  GROUP BY 1\n),\n_bugs_fixed AS (\n  SELECT \n    i.assignee_name as author_name,\n    count(distinct i.id) as bugs_fixed\n  FROM issues i\n  JOIN board_issues bi ON i.id = bi.issue_id\n  JOIN boards b ON bi.board_id = b.id\n  JOIN project_mapping pm ON b.id = pm.row_id\n  WHERE pm.project_name IN (${project})\n    AND i.status = 'DONE'\n    AND i.type = 'BUG'\n    AND $__timeFilter(i.resolution_date)\n  GROUP BY 1\n),\n_incidents_fixed AS (\n  SELECT assignee_name as author_name, count(*) as incidents_fixed\n  FROM incidents i\n  JOIN project_mapping pm ON i.scope_id = pm.row_id\n  WHERE pm.project_name IN (${project}) \n    AND $__timeFilter(resolution_date)\n  GROUP BY 1\n),\n_incidents_caused AS (\n  SELECT c.author_name, count(distinct i.id) as incidents_caused\n  FROM incidents i\n  JOIN project_incident_deployment_relationships pim ON i.id = pim.id\n  JOIN cicd_deployment_commits cdc ON pim.deployment_id = cdc.cicd_deployment_id\n  JOIN commits c ON cdc.commit_sha = c.sha\n  JOIN project_mapping pm ON i.scope_id = pm.row_id\n  WHERE pm.project_name IN (${project}) \n    AND $__timeFilter(i.created_date)\n  GROUP BY 1\n),\n_all_authors AS (\n    SELECT author_name FROM _commits \n    UNION SELECT author_name FROM _prs \n    UNION SELECT author_name FROM _jira_issues_resolved\n    UNION SELECT author_name FROM _incidents_fixed\n    UNION SELECT author_name FROM _incidents_caused\n)\n\nSELECT \n  t.author_name as 'Engineer',\n  COALESCE(c.commit_count, 0) as 'Commits',\n  COALESCE(p.pr_opened, 0) as 'PRs Opened',\n  COALESCE(p.pr_merged, 0) as 'PRs Merged',\n  COALESCE(jr.issues_resolved, 0) as 'Jira Issues Resolved',\n  COALESCE(jr.story_points_delivered, 0) as 'Story Points',\n  COALESCE(bf.bugs_fixed, 0) as 'Bugs Fixed',\n  COALESCE(f.incidents_fixed, 0) as 'Incidents Resolved',\n  COALESCE(caused.incidents_caused, 0) as 'Incidents Caused'\nFROM _all_authors t\nLEFT JOIN _commits c ON t.author_name = c.author_name\nLEFT JOIN _prs p ON t.author_name = p.author_name\nLEFT JOIN _jira_issues_resolved jr ON t.author_name = jr.author_name\nLEFT JOIN _bugs_fixed bf ON t.author_name = bf.author_name\nLEFT JOIN _incidents_fixed f ON t.author_name = f.author_name\nLEFT JOIN _incidents_caused caused ON t.author_name = caused.author_name\nWHERE t.author_name IS NOT NULL AND t.author_name != ''\nORDER BY COALESCE(c.commit_count, 0) DESC\nLIMIT 100",
           "refId": "A"
         }
       ],
       "title": "Individual Contributor Performance",
+      "type": "table"
+    },
+    {
+      "datasource": "mysql",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "displayMode": "auto"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 12,
+        "x": 12,
+        "y": 70
+      },
+      "id": 1000,
+      "options": {
+        "footer": {
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "PRs Reviewed"
+          }
+        ]
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "group": [],
+          "metricColumn": "none",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  prc.author_name as 'Reviewer',\n  count(distinct pr.id) as 'PRs Reviewed',\n  count(*) as 'Comments Given'\nFROM pull_request_comments prc\nJOIN pull_requests pr ON prc.pull_request_id = pr.id\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id AND pm.table = 'repos'\nWHERE pm.project_name IN (${project})\n  AND prc.author_id != pr.author_id\n  AND $__timeFilter(prc.created_date)\nGROUP BY 1\nORDER BY 2 DESC\nLIMIT 100",
+          "refId": "A"
+        }
+      ],
+      "title": "Reviewer Leaderboard",
       "type": "table"
     },
     {
@@ -2385,20 +2450,34 @@
                 "value": true
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Lead Time (Days)"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 130
+              }
+            ]
           }
         ]
       },
       "gridPos": {
-        "h": 14,
+        "h": 12,
         "w": 24,
         "x": 0,
-        "y": 89
+        "y": 80
       },
       "id": 1001,
       "options": {
         "footer": {
           "fields": "",
-          "reducer": ["sum"],
+          "reducer": [
+            "sum"
+          ],
           "show": false
         },
         "showHeader": true,
@@ -2426,7 +2505,7 @@
     },
     {
       "datasource": "mysql",
-      "description": "Summary of issues resolved by each engineer grouped by issue type",
+      "description": "Summary of issues resolved by each engineer grouped by issue type and resolution reason",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -2470,7 +2549,7 @@
         "h": 10,
         "w": 12,
         "x": 0,
-        "y": 103
+        "y": 92
       },
       "id": 1002,
       "options": {
@@ -2571,13 +2650,15 @@
         "h": 10,
         "w": 12,
         "x": 12,
-        "y": 103
+        "y": 92
       },
       "id": 1003,
       "options": {
         "footer": {
           "fields": "",
-          "reducer": ["sum"],
+          "reducer": [
+            "sum"
+          ],
           "show": true
         },
         "showHeader": true,
@@ -2602,559 +2683,6 @@
       ],
       "title": "Engineer Story Points & Jira IDs Summary",
       "type": "table"
-    },
-    {
-      "datasource": "mysql",
-      "description": "SonarQube code quality metrics per engineer - Bugs, Vulnerabilities, Code Smells introduced",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto",
-            "filterable": true
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "yellow",
-                "value": 5
-              },
-              {
-                "color": "red",
-                "value": 10
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Bugs"
-            },
-            "properties": [
-              {
-                "id": "custom.displayMode",
-                "value": "color-background"
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Vulnerabilities"
-            },
-            "properties": [
-              {
-                "id": "custom.displayMode",
-                "value": "color-background"
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {"color": "green", "value": null},
-                    {"color": "orange", "value": 1},
-                    {"color": "red", "value": 3}
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Security Hotspots"
-            },
-            "properties": [
-              {
-                "id": "custom.displayMode",
-                "value": "color-background"
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {"color": "green", "value": null},
-                    {"color": "yellow", "value": 2},
-                    {"color": "red", "value": 5}
-                  ]
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 12,
-        "w": 24,
-        "x": 0,
-        "y": 113
-      },
-      "id": 1004,
-      "options": {
-        "footer": {
-          "fields": "",
-          "reducer": ["sum"],
-          "show": true
-        },
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": true,
-            "displayName": "Total Issues"
-          }
-        ]
-      },
-      "pluginVersion": "8.4.3",
-      "targets": [
-        {
-          "datasource": "mysql",
-          "format": "table",
-          "group": [],
-          "metricColumn": "none",
-          "rawQuery": true,
-          "rawSql": "SELECT \n  COALESCE(cq.commit_author_email, cq.assignee, 'Unknown') as 'Engineer',\n  SUM(CASE WHEN cq.type = 'BUG' THEN 1 ELSE 0 END) as 'Bugs',\n  SUM(CASE WHEN cq.type = 'VULNERABILITY' THEN 1 ELSE 0 END) as 'Vulnerabilities',\n  SUM(CASE WHEN cq.type = 'CODE_SMELL' THEN 1 ELSE 0 END) as 'Code Smells',\n  SUM(CASE WHEN cq.type = 'SECURITY_HOTSPOT' THEN 1 ELSE 0 END) as 'Security Hotspots',\n  COUNT(*) as 'Total Issues',\n  SUM(CASE WHEN cq.severity = 'BLOCKER' THEN 1 ELSE 0 END) as 'Blockers',\n  SUM(CASE WHEN cq.severity = 'CRITICAL' THEN 1 ELSE 0 END) as 'Critical',\n  SUM(CASE WHEN cq.severity = 'MAJOR' THEN 1 ELSE 0 END) as 'Major',\n  ROUND(SUM(COALESCE(cq.debt, 0)) / 60, 1) as 'Tech Debt (hrs)',\n  COUNT(DISTINCT cq.rule) as 'Rules Violated'\nFROM cq_issues cq\nWHERE $__timeFilter(cq.created_date)\n  AND (cq.commit_author_email IS NOT NULL OR cq.assignee IS NOT NULL)\nGROUP BY COALESCE(cq.commit_author_email, cq.assignee, 'Unknown')\nHAVING COUNT(*) > 0\nORDER BY COUNT(*) DESC\nLIMIT 50",
-          "refId": "A"
-        }
-      ],
-      "title": "SonarQube Code Quality Issues per Engineer",
-      "type": "table"
-    },
-    {
-      "datasource": "mysql",
-      "description": "CI/CD Pipeline success rate and metrics per engineer",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto",
-            "filterable": true
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Success Rate %"
-            },
-            "properties": [
-              {
-                "id": "custom.displayMode",
-                "value": "gradient-gauge"
-              },
-              {
-                "id": "min",
-                "value": 0
-              },
-              {
-                "id": "max",
-                "value": 100
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {"color": "red", "value": null},
-                    {"color": "yellow", "value": 70},
-                    {"color": "green", "value": 90}
-                  ]
-                }
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Failed"
-            },
-            "properties": [
-              {
-                "id": "custom.displayMode",
-                "value": "color-background"
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {"color": "green", "value": null},
-                    {"color": "yellow", "value": 3},
-                    {"color": "red", "value": 10}
-                  ]
-                }
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 10,
-        "w": 12,
-        "x": 0,
-        "y": 125
-      },
-      "id": 1005,
-      "options": {
-        "footer": {
-          "fields": "",
-          "reducer": ["sum"],
-          "show": true
-        },
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": true,
-            "displayName": "Pipelines"
-          }
-        ]
-      },
-      "pluginVersion": "8.4.3",
-      "targets": [
-        {
-          "datasource": "mysql",
-          "format": "table",
-          "group": [],
-          "metricColumn": "none",
-          "rawQuery": true,
-          "rawSql": "SELECT \n  c.author_name as 'Engineer',\n  COUNT(DISTINCT p.id) as 'Pipelines',\n  SUM(CASE WHEN p.result = 'SUCCESS' THEN 1 ELSE 0 END) as 'Success',\n  SUM(CASE WHEN p.result = 'FAILURE' THEN 1 ELSE 0 END) as 'Failed',\n  SUM(CASE WHEN p.result NOT IN ('SUCCESS', 'FAILURE') THEN 1 ELSE 0 END) as 'Other',\n  ROUND(100.0 * SUM(CASE WHEN p.result = 'SUCCESS' THEN 1 ELSE 0 END) / NULLIF(COUNT(DISTINCT p.id), 0), 1) as 'Success Rate %',\n  ROUND(AVG(p.duration_sec) / 60, 1) as 'Avg Duration (min)',\n  COUNT(DISTINCT DATE(p.created_date)) as 'Active Days'\nFROM cicd_pipelines p\nJOIN cicd_pipeline_commits pc ON p.id = pc.pipeline_id\nJOIN commits c ON pc.commit_sha = c.sha\nJOIN repo_commits rc ON c.sha = rc.commit_sha\nJOIN project_mapping pm ON rc.repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(p.created_date)\n  AND c.author_name IS NOT NULL AND c.author_name != ''\n  AND c.message NOT LIKE 'Merge %' AND c.message NOT LIKE 'Merged %'\nGROUP BY c.author_name\nORDER BY COUNT(DISTINCT p.id) DESC\nLIMIT 30",
-          "refId": "A"
-        }
-      ],
-      "title": "CI/CD Pipeline Metrics per Engineer",
-      "type": "table"
-    },
-    {
-      "datasource": "mysql",
-      "description": "End-to-end contribution view: Jira Issue -> GitLab MR -> CI/CD Pipeline -> SonarQube Check",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "thresholds"
-          },
-          "custom": {
-            "align": "auto",
-            "displayMode": "auto",
-            "filterable": true
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Pipeline Status"
-            },
-            "properties": [
-              {
-                "id": "custom.displayMode",
-                "value": "color-background"
-              },
-              {
-                "id": "mappings",
-                "value": [
-                  {"options": {"SUCCESS": {"color": "green", "index": 0, "text": "SUCCESS"}}, "type": "value"},
-                  {"options": {"FAILURE": {"color": "red", "index": 1, "text": "FAILURE"}}, "type": "value"}
-                ]
-              }
-            ]
-          },
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "PR Status"
-            },
-            "properties": [
-              {
-                "id": "custom.displayMode",
-                "value": "color-background"
-              },
-              {
-                "id": "mappings",
-                "value": [
-                  {"options": {"MERGED": {"color": "green", "index": 0, "text": "MERGED"}}, "type": "value"},
-                  {"options": {"OPEN": {"color": "blue", "index": 1, "text": "OPEN"}}, "type": "value"},
-                  {"options": {"CLOSED": {"color": "orange", "index": 2, "text": "CLOSED"}}, "type": "value"}
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 12,
-        "w": 12,
-        "x": 12,
-        "y": 125
-      },
-      "id": 1006,
-      "options": {
-        "footer": {
-          "fields": "",
-          "reducer": ["sum"],
-          "show": false
-        },
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": true,
-            "displayName": "PR Created"
-          }
-        ]
-      },
-      "pluginVersion": "8.4.3",
-      "targets": [
-        {
-          "datasource": "mysql",
-          "format": "table",
-          "group": [],
-          "metricColumn": "none",
-          "rawQuery": true,
-          "rawSql": "SELECT \n  pr.author_name as 'Engineer',\n  i.issue_key as 'Jira ID',\n  pr.pull_request_key as 'PR #',\n  pr.title as 'PR Title',\n  pr.status as 'PR Status',\n  DATE_FORMAT(pr.created_date, '%Y-%m-%d') as 'PR Created',\n  DATE_FORMAT(pr.merged_date, '%Y-%m-%d') as 'Merged Date',\n  p.result as 'Pipeline Status',\n  COALESCE(sq.bugs, 0) as 'SQ Bugs',\n  COALESCE(sq.vulns, 0) as 'SQ Vulns',\n  COALESCE(sq.smells, 0) as 'SQ Smells'\nFROM pull_requests pr\nLEFT JOIN pull_request_issues pri ON pr.id = pri.pull_request_id\nLEFT JOIN issues i ON pri.issue_id = i.id\nLEFT JOIN (\n  SELECT pc.commit_sha, p.result\n  FROM cicd_pipelines p\n  JOIN cicd_pipeline_commits pc ON p.id = pc.pipeline_id\n  WHERE p.result IS NOT NULL\n) p ON pr.merge_commit_sha = p.commit_sha\nLEFT JOIN (\n  SELECT \n    cq.commit_author_email,\n    SUM(CASE WHEN cq.type = 'BUG' THEN 1 ELSE 0 END) as bugs,\n    SUM(CASE WHEN cq.type = 'VULNERABILITY' THEN 1 ELSE 0 END) as vulns,\n    SUM(CASE WHEN cq.type = 'CODE_SMELL' THEN 1 ELSE 0 END) as smells\n  FROM cq_issues cq\n  GROUP BY cq.commit_author_email\n) sq ON pr.author_name LIKE CONCAT('%', SUBSTRING_INDEX(sq.commit_author_email, '@', 1), '%')\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(pr.created_date)\n  AND pr.author_name IS NOT NULL AND pr.author_name != ''\nORDER BY pr.created_date DESC\nLIMIT 100",
-          "refId": "A"
-        }
-      ],
-      "title": "End-to-End: Jira -> GitLab PR -> CI/CD -> SonarQube",
-      "type": "table"
-    },
-    {
-      "datasource": "mysql",
-      "description": "SonarQube issues breakdown by severity for each engineer",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "Issues",
-            "axisPlacement": "auto",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {"id": "byName", "options": "Blockers"},
-            "properties": [{"id": "color", "value": {"fixedColor": "dark-red", "mode": "fixed"}}]
-          },
-          {
-            "matcher": {"id": "byName", "options": "Critical"},
-            "properties": [{"id": "color", "value": {"fixedColor": "red", "mode": "fixed"}}]
-          },
-          {
-            "matcher": {"id": "byName", "options": "Major"},
-            "properties": [{"id": "color", "value": {"fixedColor": "orange", "mode": "fixed"}}]
-          },
-          {
-            "matcher": {"id": "byName", "options": "Minor"},
-            "properties": [{"id": "color", "value": {"fixedColor": "yellow", "mode": "fixed"}}]
-          },
-          {
-            "matcher": {"id": "byName", "options": "Info"},
-            "properties": [{"id": "color", "value": {"fixedColor": "blue", "mode": "fixed"}}]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 10,
-        "w": 12,
-        "x": 0,
-        "y": 137
-      },
-      "id": 1007,
-      "options": {
-        "barRadius": 0,
-        "barWidth": 0.6,
-        "fullHighlight": false,
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "orientation": "horizontal",
-        "showValue": "auto",
-        "stacking": "normal",
-        "text": {
-          "valueSize": 12
-        },
-        "tooltip": {
-          "maxHeight": 600,
-          "mode": "single",
-          "sort": "none"
-        },
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 0
-      },
-      "pluginVersion": "8.0.6",
-      "targets": [
-        {
-          "datasource": "mysql",
-          "format": "table",
-          "group": [],
-          "metricColumn": "none",
-          "rawQuery": true,
-          "rawSql": "SELECT \n  COALESCE(cq.commit_author_email, cq.assignee, 'Unknown') as 'Engineer',\n  SUM(CASE WHEN cq.severity = 'BLOCKER' THEN 1 ELSE 0 END) as 'Blockers',\n  SUM(CASE WHEN cq.severity = 'CRITICAL' THEN 1 ELSE 0 END) as 'Critical',\n  SUM(CASE WHEN cq.severity = 'MAJOR' THEN 1 ELSE 0 END) as 'Major',\n  SUM(CASE WHEN cq.severity = 'MINOR' THEN 1 ELSE 0 END) as 'Minor',\n  SUM(CASE WHEN cq.severity = 'INFO' THEN 1 ELSE 0 END) as 'Info'\nFROM cq_issues cq\nWHERE $__timeFilter(cq.created_date)\n  AND (cq.commit_author_email IS NOT NULL OR cq.assignee IS NOT NULL)\nGROUP BY COALESCE(cq.commit_author_email, cq.assignee, 'Unknown')\nHAVING COUNT(*) > 0\nORDER BY SUM(CASE WHEN cq.severity = 'BLOCKER' THEN 1 ELSE 0 END) + SUM(CASE WHEN cq.severity = 'CRITICAL' THEN 1 ELSE 0 END) DESC\nLIMIT 15",
-          "refId": "A"
-        }
-      ],
-      "title": "SonarQube Issues by Severity per Engineer",
-      "type": "barchart"
-    },
-    {
-      "datasource": "mysql",
-      "description": "CI/CD Pipeline success rate trend per engineer over time",
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "Success Rate %",
-            "axisPlacement": "auto",
-            "barAlignment": 0,
-            "drawStyle": "line",
-            "fillOpacity": 10,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "insertNulls": false,
-            "lineInterpolation": "smooth",
-            "lineWidth": 2,
-            "pointSize": 5,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "showPoints": "auto",
-            "spanNulls": true,
-            "stacking": {
-              "group": "A",
-              "mode": "none"
-            },
-            "thresholdsStyle": {
-              "mode": "line"
-            }
-          },
-          "mappings": [],
-          "max": 100,
-          "min": 0,
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 80
-              }
-            ]
-          },
-          "unit": "percent"
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 10,
-        "w": 12,
-        "x": 12,
-        "y": 137
-      },
-      "id": 1008,
-      "options": {
-        "legend": {
-          "calcs": ["mean"],
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true
-        },
-        "tooltip": {
-          "maxHeight": 600,
-          "mode": "multi",
-          "sort": "desc"
-        }
-      },
-      "pluginVersion": "8.0.6",
-      "targets": [
-        {
-          "datasource": "mysql",
-          "format": "time_series",
-          "group": [],
-          "metricColumn": "none",
-          "rawQuery": true,
-          "rawSql": "SELECT \n  DATE_ADD(DATE(p.created_date), INTERVAL -DAYOFWEEK(DATE(p.created_date))+1 DAY) as time,\n  c.author_name as metric,\n  ROUND(100.0 * SUM(CASE WHEN p.result = 'SUCCESS' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as value\nFROM cicd_pipelines p\nJOIN cicd_pipeline_commits pc ON p.id = pc.pipeline_id\nJOIN commits c ON pc.commit_sha = c.sha\nJOIN repo_commits rc ON c.sha = rc.commit_sha\nJOIN project_mapping pm ON rc.repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(p.created_date)\n  AND c.author_name IS NOT NULL AND c.author_name != ''\n  AND c.message NOT LIKE 'Merge %' AND c.message NOT LIKE 'Merged %'\nGROUP BY time, c.author_name\nHAVING COUNT(*) >= 3\nORDER BY time",
-          "refId": "A"
-        }
-      ],
-      "title": "CI/CD Success Rate Trend by Engineer (Weekly)",
-      "type": "timeseries"
     }
   ],
   "refresh": "",
@@ -3271,4 +2799,6 @@
   "uid": "ZF6abXX7z",
   "version": 15,
   "weekStart": ""
+},
+  "overwrite": true
 }

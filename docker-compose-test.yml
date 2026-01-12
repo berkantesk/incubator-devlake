@@ -1,0 +1,82 @@
+# Docker Compose for local testing with SonarQube 10 changes
+# Uses pre-built images for quick testing
+version: "3"
+services:
+  mysql:
+    image: mysql:8
+    volumes:
+      - mysql-storage:/var/lib/mysql
+    restart: always
+    ports:
+      - 3306:3306
+    environment:
+      MYSQL_ROOT_PASSWORD: admin
+      MYSQL_DATABASE: lake
+      MYSQL_USER: merico
+      MYSQL_PASSWORD: merico
+      TZ: UTC
+    command: --character-set-server=utf8mb4
+      --collation-server=utf8mb4_bin
+      --skip-log-bin
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  grafana:
+    image: devlake.docker.scarf.sh/apache/devlake-dashboard:latest
+    ports:
+      - 3002:3000
+    volumes:
+      - grafana-storage:/var/lib/grafana
+      - ./grafana/dashboards:/etc/grafana/dashboards
+    environment:
+      GF_SERVER_ROOT_URL: "http://localhost:4000/grafana"
+      GF_USERS_DEFAULT_THEME: "light"
+      MYSQL_URL: mysql:3306
+      MYSQL_DATABASE: lake
+      MYSQL_USER: merico
+      MYSQL_PASSWORD: merico
+      TZ: UTC
+    restart: always
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  devlake:
+    image: devlake.docker.scarf.sh/apache/devlake:latest
+    ports:
+      - 8080:8080
+    restart: always
+    volumes:
+      - devlake-log:/app/logs
+    environment:
+      DB_URL: mysql://merico:merico@mysql:3306/lake?charset=utf8mb4&parseTime=True
+      PORT: 8080
+      MODE: release
+      ENCRYPTION_SECRET: devlake_encryption_secret_key_32
+      LOGGING_DIR: /app/logs
+      LOGGING_LEVEL: info
+      TZ: UTC
+      # Skip TLS certificate verification for self-signed/internal certificates
+      IN_SECURE_SKIP_VERIFY: "true"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  config-ui:
+    image: devlake.docker.scarf.sh/apache/devlake-config-ui:latest
+    ports:
+      - 4000:4000
+    environment:
+      DEVLAKE_ENDPOINT: devlake:8080
+      GRAFANA_ENDPOINT: grafana:3000
+      TZ: UTC
+    depends_on:
+      - devlake
+
+volumes:
+  mysql-storage:
+  grafana-storage:
+  devlake-log:
