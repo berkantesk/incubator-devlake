@@ -1,0 +1,1152 @@
+{
+  "annotations": {
+    "list": []
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "gridPos": {"h": 2, "w": 24, "x": 0, "y": 0},
+      "id": 1,
+      "options": {
+        "code": {"language": "plaintext", "showLineNumbers": false, "showMiniMap": false},
+        "content": "# SPACE Framework - Developer Productivity Metrics\n\nThe SPACE framework captures five key dimensions of developer productivity: **S**atisfaction, **P**erformance, **A**ctivity, **C**ommunication & Collaboration, and **E**fficiency & Flow.\n\n*Based on research by GitHub, Microsoft, and University of Victoria*",
+        "mode": "markdown"
+      },
+      "pluginVersion": "8.4.3",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "gridPos": {"h": 2, "w": 24, "x": 0, "y": 2},
+      "id": 2,
+      "options": {
+        "code": {"language": "plaintext", "showLineNumbers": false, "showMiniMap": false},
+        "content": "## S - Satisfaction & Well-being\n*How fulfilled developers feel with their work, team, tools, and culture*",
+        "mode": "markdown"
+      },
+      "pluginVersion": "8.4.3",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Developer workload distribution - commits per engineer to identify potential burnout",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false}
+          },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 4},
+      "id": 10,
+      "options": {
+        "legend": {"displayMode": "table", "placement": "right", "showLegend": true, "values": ["value", "percent"]},
+        "pieType": "donut",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "tooltip": {"mode": "single", "sort": "none"}
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  c.author_name as metric,\n  COUNT(DISTINCT c.sha) as value\nFROM commits c\nJOIN repo_commits rc ON c.sha = rc.commit_sha\nJOIN project_mapping pm ON rc.repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(c.authored_date)\n  AND c.message NOT LIKE 'Merge %' AND c.message NOT LIKE 'Merged %'\n  AND c.author_name IS NOT NULL AND c.author_name != ''\nGROUP BY c.author_name\nORDER BY COUNT(DISTINCT c.sha) DESC\nLIMIT 10",
+          "refId": "A"
+        }
+      ],
+      "title": "Workload Distribution (Commits)",
+      "type": "piechart"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Work-life balance indicator - activity outside business hours",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 20},
+              {"color": "red", "value": 40}
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 8, "y": 4},
+      "id": 11,
+      "options": {
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "showThresholdLabels": false,
+        "showThresholdMarkers": true
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  ROUND(100.0 * SUM(CASE WHEN HOUR(c.authored_date) < 9 OR HOUR(c.authored_date) >= 18 THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as value\nFROM commits c\nJOIN repo_commits rc ON c.sha = rc.commit_sha\nJOIN project_mapping pm ON rc.repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(c.authored_date)\n  AND c.message NOT LIKE 'Merge %' AND c.message NOT LIKE 'Merged %'",
+          "refId": "A"
+        }
+      ],
+      "title": "After-Hours Work %",
+      "type": "gauge"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Active coding days per engineer - higher is generally better for engagement",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "custom": {"align": "auto", "displayMode": "auto", "filterable": true},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "green", "value": null}]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Coding Days"},
+            "properties": [
+              {"id": "custom.displayMode", "value": "gradient-gauge"},
+              {"id": "min", "value": 0},
+              {"id": "max", "value": 30}
+            ]
+          }
+        ]
+      },
+      "gridPos": {"h": 8, "w": 8, "x": 16, "y": 4},
+      "id": 12,
+      "options": {
+        "footer": {"fields": "", "reducer": ["sum"], "show": false},
+        "showHeader": true,
+        "sortBy": [{"desc": true, "displayName": "Coding Days"}]
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  c.author_name as 'Engineer',\n  COUNT(DISTINCT DATE(c.authored_date)) as 'Coding Days',\n  COUNT(DISTINCT c.sha) as 'Total Commits'\nFROM commits c\nJOIN repo_commits rc ON c.sha = rc.commit_sha\nJOIN project_mapping pm ON rc.repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(c.authored_date)\n  AND c.message NOT LIKE 'Merge %' AND c.message NOT LIKE 'Merged %'\n  AND c.author_name IS NOT NULL AND c.author_name != ''\nGROUP BY c.author_name\nORDER BY COUNT(DISTINCT DATE(c.authored_date)) DESC\nLIMIT 15",
+          "refId": "A"
+        }
+      ],
+      "title": "Engineer Engagement (Coding Days)",
+      "type": "table"
+    },
+    {
+      "gridPos": {"h": 2, "w": 24, "x": 0, "y": 12},
+      "id": 3,
+      "options": {
+        "code": {"language": "plaintext", "showLineNumbers": false, "showMiniMap": false},
+        "content": "## P - Performance\n*Outcomes over output - code reliability, task completion, and quality*",
+        "mode": "markdown"
+      },
+      "pluginVersion": "8.4.3",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Bug fix rate - percentage of resolved bugs",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 60},
+              {"color": "green", "value": 80}
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 14},
+      "id": 20,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  ROUND(100.0 * SUM(CASE WHEN i.status = 'DONE' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as value\nFROM issues i\nJOIN board_issues bi ON i.id = bi.issue_id\nJOIN boards b ON bi.board_id = b.id\nJOIN project_mapping pm ON b.id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND i.type = 'BUG'\n  AND $__timeFilter(i.created_date)",
+          "refId": "A"
+        }
+      ],
+      "title": "Bug Resolution Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": "mysql",
+      "description": "CI/CD Pipeline success rate",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 70},
+              {"color": "green", "value": 90}
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 14},
+      "id": 21,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  ROUND(100.0 * SUM(CASE WHEN p.result = 'SUCCESS' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as value\nFROM cicd_pipelines p\nJOIN project_mapping pm ON p.cicd_scope_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(p.created_date)",
+          "refId": "A"
+        }
+      ],
+      "title": "Pipeline Success Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": "mysql",
+      "description": "SonarQube code quality score",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 70},
+              {"color": "green", "value": 90}
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 14},
+      "id": 22,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  ROUND(100.0 - (100.0 * COUNT(CASE WHEN cq.severity IN ('BLOCKER', 'CRITICAL') THEN 1 END) / NULLIF(COUNT(*), 0)), 1) as value\nFROM cq_issues cq\nWHERE $__timeFilter(cq.created_date)",
+          "refId": "A"
+        }
+      ],
+      "title": "Code Quality Score",
+      "type": "stat"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Story points delivered",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "blue", "value": null}]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 14},
+      "id": 23,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  COALESCE(SUM(i.story_point), 0) as value\nFROM issues i\nJOIN board_issues bi ON i.id = bi.issue_id\nJOIN boards b ON bi.board_id = b.id\nJOIN project_mapping pm ON b.id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND i.status = 'DONE'\n  AND $__timeFilter(i.resolution_date)",
+          "refId": "A"
+        }
+      ],
+      "title": "Story Points Delivered",
+      "type": "stat"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Performance metrics per engineer",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "custom": {"align": "auto", "displayMode": "auto", "filterable": true},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Bug Fix Rate %"},
+            "properties": [
+              {"id": "custom.displayMode", "value": "gradient-gauge"},
+              {"id": "min", "value": 0},
+              {"id": "max", "value": 100},
+              {"id": "thresholds", "value": {"mode": "absolute", "steps": [{"color": "red", "value": null}, {"color": "yellow", "value": 60}, {"color": "green", "value": 80}]}}
+            ]
+          }
+        ]
+      },
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 20},
+      "id": 24,
+      "options": {
+        "footer": {"fields": "", "reducer": ["sum"], "show": true},
+        "showHeader": true,
+        "sortBy": [{"desc": true, "displayName": "Story Points"}]
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  i.assignee_name as 'Engineer',\n  COUNT(DISTINCT CASE WHEN i.status = 'DONE' THEN i.id END) as 'Issues Resolved',\n  COALESCE(SUM(CASE WHEN i.status = 'DONE' THEN i.story_point ELSE 0 END), 0) as 'Story Points',\n  COUNT(DISTINCT CASE WHEN i.type = 'BUG' AND i.status = 'DONE' THEN i.id END) as 'Bugs Fixed',\n  COUNT(DISTINCT CASE WHEN i.type = 'BUG' THEN i.id END) as 'Bugs Assigned',\n  ROUND(100.0 * COUNT(DISTINCT CASE WHEN i.type = 'BUG' AND i.status = 'DONE' THEN i.id END) / NULLIF(COUNT(DISTINCT CASE WHEN i.type = 'BUG' THEN i.id END), 0), 1) as 'Bug Fix Rate %',\n  ROUND(AVG(CASE WHEN i.status = 'DONE' THEN i.lead_time_minutes END) / 1440, 1) as 'Avg Lead Time (Days)'\nFROM issues i\nJOIN board_issues bi ON i.id = bi.issue_id\nJOIN boards b ON bi.board_id = b.id\nJOIN project_mapping pm ON b.id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(i.created_date)\n  AND i.assignee_name IS NOT NULL AND i.assignee_name != ''\nGROUP BY i.assignee_name\nORDER BY COALESCE(SUM(CASE WHEN i.status = 'DONE' THEN i.story_point ELSE 0 END), 0) DESC\nLIMIT 20",
+          "refId": "A"
+        }
+      ],
+      "title": "Performance by Engineer",
+      "type": "table"
+    },
+    {
+      "gridPos": {"h": 2, "w": 24, "x": 0, "y": 30},
+      "id": 4,
+      "options": {
+        "code": {"language": "plaintext", "showLineNumbers": false, "showMiniMap": false},
+        "content": "## A - Activity\n*Tracking development activities - coding, testing, debugging, and collaboration*",
+        "mode": "markdown"
+      },
+      "pluginVersion": "8.4.3",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Commits over time",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisBorderShow": false,
+            "axisColorMode": "text",
+            "axisLabel": "Commits",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "lineWidth": 1,
+            "scaleDistribution": {"type": "linear"},
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 32},
+      "id": 30,
+      "options": {
+        "legend": {"calcs": ["sum"], "displayMode": "list", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  DATE(c.authored_date) as time,\n  COUNT(DISTINCT c.sha) as value\nFROM commits c\nJOIN repo_commits rc ON c.sha = rc.commit_sha\nJOIN project_mapping pm ON rc.repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(c.authored_date)\n  AND c.message NOT LIKE 'Merge %' AND c.message NOT LIKE 'Merged %'\nGROUP BY DATE(c.authored_date)\nORDER BY time",
+          "refId": "A"
+        }
+      ],
+      "title": "Commit Activity Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "mysql",
+      "description": "PR activity over time",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisBorderShow": false,
+            "axisColorMode": "text",
+            "axisLabel": "PRs",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "auto",
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 32},
+      "id": 31,
+      "options": {
+        "legend": {"calcs": ["sum"], "displayMode": "list", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  DATE(pr.created_date) as time,\n  'Opened' as metric,\n  COUNT(*) as value\nFROM pull_requests pr\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(pr.created_date)\nGROUP BY DATE(pr.created_date)\nUNION ALL\nSELECT \n  DATE(pr.merged_date) as time,\n  'Merged' as metric,\n  COUNT(*) as value\nFROM pull_requests pr\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND pr.status = 'MERGED'\n  AND $__timeFilter(pr.merged_date)\nGROUP BY DATE(pr.merged_date)\nORDER BY time",
+          "refId": "A"
+        }
+      ],
+      "title": "PR Activity Over Time",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Comprehensive activity metrics per engineer",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "custom": {"align": "auto", "displayMode": "auto", "filterable": true},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 40},
+      "id": 32,
+      "options": {
+        "footer": {"fields": "", "reducer": ["sum"], "show": true},
+        "showHeader": true,
+        "sortBy": [{"desc": true, "displayName": "Commits"}]
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH \n_commits AS (\n  SELECT author_name, \n         COUNT(DISTINCT sha) as commits,\n         COALESCE(SUM(additions), 0) as lines_added,\n         COALESCE(SUM(deletions), 0) as lines_deleted\n  FROM commits c\n  JOIN repo_commits rc ON c.sha = rc.commit_sha\n  JOIN project_mapping pm ON rc.repo_id = pm.row_id\n  WHERE pm.project_name IN (${project}) AND $__timeFilter(authored_date)\n    AND c.message NOT LIKE 'Merge %' AND c.message NOT LIKE 'Merged %'\n  GROUP BY author_name\n),\n_prs AS (\n  SELECT author_name, \n         COUNT(*) as prs_opened,\n         SUM(CASE WHEN status = 'MERGED' THEN 1 ELSE 0 END) as prs_merged\n  FROM pull_requests pr\n  JOIN project_mapping pm ON pr.base_repo_id = pm.row_id\n  WHERE pm.project_name IN (${project}) AND $__timeFilter(created_date)\n  GROUP BY author_name\n),\n_reviews AS (\n  SELECT reviewer_name as author_name,\n         COUNT(DISTINCT pull_request_id) as prs_reviewed,\n         COUNT(*) as review_comments\n  FROM pull_request_comments prc\n  JOIN pull_requests pr ON prc.pull_request_id = pr.id\n  JOIN project_mapping pm ON pr.base_repo_id = pm.row_id\n  WHERE pm.project_name IN (${project}) AND $__timeFilter(prc.created_date)\n    AND prc.reviewer_name IS NOT NULL\n  GROUP BY reviewer_name\n),\n_issues AS (\n  SELECT assignee_name as author_name,\n         COUNT(DISTINCT CASE WHEN status = 'DONE' THEN id END) as issues_resolved\n  FROM issues i\n  JOIN board_issues bi ON i.id = bi.issue_id\n  JOIN boards b ON bi.board_id = b.id\n  JOIN project_mapping pm ON b.id = pm.row_id\n  WHERE pm.project_name IN (${project}) AND $__timeFilter(resolution_date)\n  GROUP BY assignee_name\n)\nSELECT \n  COALESCE(c.author_name, p.author_name, r.author_name, i.author_name) as 'Engineer',\n  COALESCE(c.commits, 0) as 'Commits',\n  COALESCE(c.lines_added, 0) as 'Lines Added',\n  COALESCE(c.lines_deleted, 0) as 'Lines Deleted',\n  COALESCE(p.prs_opened, 0) as 'PRs Opened',\n  COALESCE(p.prs_merged, 0) as 'PRs Merged',\n  COALESCE(r.prs_reviewed, 0) as 'PRs Reviewed',\n  COALESCE(r.review_comments, 0) as 'Review Comments',\n  COALESCE(i.issues_resolved, 0) as 'Issues Resolved'\nFROM _commits c\nFULL OUTER JOIN _prs p ON c.author_name = p.author_name\nFULL OUTER JOIN _reviews r ON COALESCE(c.author_name, p.author_name) = r.author_name\nFULL OUTER JOIN _issues i ON COALESCE(c.author_name, p.author_name, r.author_name) = i.author_name\nWHERE COALESCE(c.author_name, p.author_name, r.author_name, i.author_name) IS NOT NULL\n  AND COALESCE(c.author_name, p.author_name, r.author_name, i.author_name) != ''\nORDER BY COALESCE(c.commits, 0) DESC\nLIMIT 30",
+          "refId": "A"
+        }
+      ],
+      "title": "Activity Metrics per Engineer",
+      "type": "table"
+    },
+    {
+      "gridPos": {"h": 2, "w": 24, "x": 0, "y": 52},
+      "id": 5,
+      "options": {
+        "code": {"language": "plaintext", "showLineNumbers": false, "showMiniMap": false},
+        "content": "## C - Communication & Collaboration\n*Team collaboration, code reviews, documentation, and knowledge sharing*",
+        "mode": "markdown"
+      },
+      "pluginVersion": "8.4.3",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "datasource": "mysql",
+      "description": "PR review participation rate",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 50},
+              {"color": "green", "value": 80}
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 54},
+      "id": 40,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  ROUND(100.0 * COUNT(DISTINCT CASE WHEN prc.id IS NOT NULL THEN pr.id END) / NULLIF(COUNT(DISTINCT pr.id), 0), 1) as value\nFROM pull_requests pr\nLEFT JOIN pull_request_comments prc ON pr.id = prc.pull_request_id\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(pr.created_date)",
+          "refId": "A"
+        }
+      ],
+      "title": "PR Review Coverage",
+      "type": "stat"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Average comments per PR",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 2},
+              {"color": "green", "value": 4}
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 54},
+      "id": 41,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  ROUND(COUNT(prc.id) / NULLIF(COUNT(DISTINCT pr.id), 0), 1) as value\nFROM pull_requests pr\nLEFT JOIN pull_request_comments prc ON pr.id = prc.pull_request_id\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(pr.created_date)",
+          "refId": "A"
+        }
+      ],
+      "title": "Avg Comments per PR",
+      "type": "stat"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Unique reviewers participating",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "blue", "value": null}]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 54},
+      "id": 42,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  COUNT(DISTINCT prc.reviewer_name) as value\nFROM pull_request_comments prc\nJOIN pull_requests pr ON prc.pull_request_id = pr.id\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(prc.created_date)\n  AND prc.reviewer_name IS NOT NULL",
+          "refId": "A"
+        }
+      ],
+      "title": "Active Reviewers",
+      "type": "stat"
+    },
+    {
+      "datasource": "mysql",
+      "description": "PRs linked to Jira issues",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 50},
+              {"color": "green", "value": 80}
+            ]
+          },
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 54},
+      "id": 43,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  ROUND(100.0 * COUNT(DISTINCT CASE WHEN pri.issue_id IS NOT NULL THEN pr.id END) / NULLIF(COUNT(DISTINCT pr.id), 0), 1) as value\nFROM pull_requests pr\nLEFT JOIN pull_request_issues pri ON pr.id = pri.pull_request_id\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(pr.created_date)",
+          "refId": "A"
+        }
+      ],
+      "title": "PR-Issue Linkage Rate",
+      "type": "stat"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Top code reviewers and their contribution",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "custom": {"align": "auto", "displayMode": "auto", "filterable": true},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "PRs Reviewed"},
+            "properties": [
+              {"id": "custom.displayMode", "value": "gradient-gauge"},
+              {"id": "min", "value": 0},
+              {"id": "max", "value": 50}
+            ]
+          }
+        ]
+      },
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 60},
+      "id": 44,
+      "options": {
+        "footer": {"fields": "", "reducer": ["sum"], "show": true},
+        "showHeader": true,
+        "sortBy": [{"desc": true, "displayName": "PRs Reviewed"}]
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  prc.reviewer_name as 'Reviewer',\n  COUNT(DISTINCT prc.pull_request_id) as 'PRs Reviewed',\n  COUNT(*) as 'Comments Given',\n  ROUND(COUNT(*) / NULLIF(COUNT(DISTINCT prc.pull_request_id), 0), 1) as 'Avg Comments/PR',\n  COUNT(DISTINCT pr.author_name) as 'Authors Helped'\nFROM pull_request_comments prc\nJOIN pull_requests pr ON prc.pull_request_id = pr.id\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(prc.created_date)\n  AND prc.reviewer_name IS NOT NULL AND prc.reviewer_name != ''\nGROUP BY prc.reviewer_name\nORDER BY COUNT(DISTINCT prc.pull_request_id) DESC\nLIMIT 15",
+          "refId": "A"
+        }
+      ],
+      "title": "Code Review Leaders",
+      "type": "table"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Collaboration network - who reviews whose code",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "custom": {"align": "auto", "displayMode": "auto", "filterable": true},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 60},
+      "id": 45,
+      "options": {
+        "footer": {"fields": "", "reducer": ["sum"], "show": false},
+        "showHeader": true,
+        "sortBy": [{"desc": true, "displayName": "Interactions"}]
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  pr.author_name as 'PR Author',\n  prc.reviewer_name as 'Reviewer',\n  COUNT(*) as 'Interactions',\n  COUNT(DISTINCT pr.id) as 'PRs'\nFROM pull_request_comments prc\nJOIN pull_requests pr ON prc.pull_request_id = pr.id\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(prc.created_date)\n  AND prc.reviewer_name IS NOT NULL AND prc.reviewer_name != ''\n  AND pr.author_name IS NOT NULL AND pr.author_name != ''\n  AND pr.author_name != prc.reviewer_name\nGROUP BY pr.author_name, prc.reviewer_name\nORDER BY COUNT(*) DESC\nLIMIT 20",
+          "refId": "A"
+        }
+      ],
+      "title": "Collaboration Network",
+      "type": "table"
+    },
+    {
+      "gridPos": {"h": 2, "w": 24, "x": 0, "y": 70},
+      "id": 6,
+      "options": {
+        "code": {"language": "plaintext", "showLineNumbers": false, "showMiniMap": false},
+        "content": "## E - Efficiency & Flow\n*Time in flow state, cycle times, and process efficiency*",
+        "mode": "markdown"
+      },
+      "pluginVersion": "8.4.3",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Average PR cycle time (creation to merge)",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 48},
+              {"color": "red", "value": 120}
+            ]
+          },
+          "unit": "h"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 72},
+      "id": 50,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  ROUND(AVG(TIMESTAMPDIFF(HOUR, pr.created_date, pr.merged_date)), 1) as value\nFROM pull_requests pr\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND pr.status = 'MERGED'\n  AND $__timeFilter(pr.merged_date)",
+          "refId": "A"
+        }
+      ],
+      "title": "Avg PR Cycle Time",
+      "type": "stat"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Average time to first review",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 24},
+              {"color": "red", "value": 48}
+            ]
+          },
+          "unit": "h"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 72},
+      "id": 51,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  ROUND(AVG(TIMESTAMPDIFF(HOUR, pr.created_date, first_comment.created_date)), 1) as value\nFROM pull_requests pr\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nLEFT JOIN (\n  SELECT pull_request_id, MIN(created_date) as created_date\n  FROM pull_request_comments\n  GROUP BY pull_request_id\n) first_comment ON pr.id = first_comment.pull_request_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(pr.created_date)\n  AND first_comment.created_date IS NOT NULL",
+          "refId": "A"
+        }
+      ],
+      "title": "Avg Time to First Review",
+      "type": "stat"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Average issue lead time",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 7},
+              {"color": "red", "value": 14}
+            ]
+          },
+          "unit": "d"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 72},
+      "id": 52,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  ROUND(AVG(i.lead_time_minutes) / 1440, 1) as value\nFROM issues i\nJOIN board_issues bi ON i.id = bi.issue_id\nJOIN boards b ON bi.board_id = b.id\nJOIN project_mapping pm ON b.id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND i.status = 'DONE'\n  AND $__timeFilter(i.resolution_date)",
+          "refId": "A"
+        }
+      ],
+      "title": "Avg Issue Lead Time",
+      "type": "stat"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Deployment frequency",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [{"color": "blue", "value": null}]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 72},
+      "id": 53,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": false},
+        "textMode": "auto"
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  COUNT(*) as value\nFROM cicd_pipelines p\nJOIN project_mapping pm ON p.cicd_scope_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND p.type = 'DEPLOYMENT'\n  AND p.result = 'SUCCESS'\n  AND $__timeFilter(p.finished_date)",
+          "refId": "A"
+        }
+      ],
+      "title": "Successful Deployments",
+      "type": "stat"
+    },
+    {
+      "datasource": "mysql",
+      "description": "PR cycle time trend over time",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisBorderShow": false,
+            "axisColorMode": "text",
+            "axisLabel": "Hours",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "auto",
+            "thresholdsStyle": {"mode": "line"}
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "red", "value": 72}
+            ]
+          },
+          "unit": "h"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 10, "w": 12, "x": 0, "y": 78},
+      "id": 54,
+      "options": {
+        "legend": {"calcs": ["mean", "min", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  DATE(pr.merged_date) as time,\n  ROUND(AVG(TIMESTAMPDIFF(HOUR, pr.created_date, pr.merged_date)), 1) as value\nFROM pull_requests pr\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND pr.status = 'MERGED'\n  AND $__timeFilter(pr.merged_date)\nGROUP BY DATE(pr.merged_date)\nORDER BY time",
+          "refId": "A"
+        }
+      ],
+      "title": "PR Cycle Time Trend",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Pipeline duration trend",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "custom": {
+            "axisBorderShow": false,
+            "axisColorMode": "text",
+            "axisLabel": "Minutes",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {"legend": false, "tooltip": false, "viz": false},
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "scaleDistribution": {"type": "linear"},
+            "showPoints": "auto",
+            "thresholdsStyle": {"mode": "off"}
+          },
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]},
+          "unit": "m"
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 10, "w": 12, "x": 12, "y": 78},
+      "id": 55,
+      "options": {
+        "legend": {"calcs": ["mean"], "displayMode": "table", "placement": "bottom", "showLegend": true},
+        "tooltip": {"mode": "multi", "sort": "desc"}
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  DATE(p.finished_date) as time,\n  ROUND(AVG(p.duration_sec) / 60, 1) as value\nFROM cicd_pipelines p\nJOIN project_mapping pm ON p.cicd_scope_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND p.result = 'SUCCESS'\n  AND $__timeFilter(p.finished_date)\nGROUP BY DATE(p.finished_date)\nORDER BY time",
+          "refId": "A"
+        }
+      ],
+      "title": "Pipeline Duration Trend",
+      "type": "timeseries"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Efficiency metrics per engineer",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "custom": {"align": "auto", "displayMode": "auto", "filterable": true},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        },
+        "overrides": [
+          {
+            "matcher": {"id": "byName", "options": "Avg PR Cycle (hrs)"},
+            "properties": [
+              {"id": "custom.displayMode", "value": "gradient-gauge"},
+              {"id": "min", "value": 0},
+              {"id": "max", "value": 120},
+              {"id": "thresholds", "value": {"mode": "absolute", "steps": [{"color": "green", "value": null}, {"color": "yellow", "value": 48}, {"color": "red", "value": 96}]}}
+            ]
+          }
+        ]
+      },
+      "gridPos": {"h": 12, "w": 24, "x": 0, "y": 88},
+      "id": 56,
+      "options": {
+        "footer": {"fields": "", "reducer": ["mean"], "show": true},
+        "showHeader": true,
+        "sortBy": [{"desc": false, "displayName": "Avg PR Cycle (hrs)"}]
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  pr.author_name as 'Engineer',\n  COUNT(DISTINCT pr.id) as 'PRs Merged',\n  ROUND(AVG(TIMESTAMPDIFF(HOUR, pr.created_date, pr.merged_date)), 1) as 'Avg PR Cycle (hrs)',\n  ROUND(MIN(TIMESTAMPDIFF(HOUR, pr.created_date, pr.merged_date)), 1) as 'Min PR Cycle (hrs)',\n  ROUND(MAX(TIMESTAMPDIFF(HOUR, pr.created_date, pr.merged_date)), 1) as 'Max PR Cycle (hrs)',\n  COUNT(DISTINCT DATE(pr.merged_date)) as 'Active Days',\n  ROUND(COUNT(DISTINCT pr.id) / NULLIF(COUNT(DISTINCT DATE(pr.merged_date)), 0), 1) as 'PRs/Day'\nFROM pull_requests pr\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND pr.status = 'MERGED'\n  AND $__timeFilter(pr.merged_date)\n  AND pr.author_name IS NOT NULL AND pr.author_name != ''\nGROUP BY pr.author_name\nHAVING COUNT(DISTINCT pr.id) >= 3\nORDER BY AVG(TIMESTAMPDIFF(HOUR, pr.created_date, pr.merged_date))\nLIMIT 25",
+          "refId": "A"
+        }
+      ],
+      "title": "Efficiency Metrics per Engineer",
+      "type": "table"
+    },
+    {
+      "gridPos": {"h": 2, "w": 24, "x": 0, "y": 100},
+      "id": 7,
+      "options": {
+        "code": {"language": "plaintext", "showLineNumbers": false, "showMiniMap": false},
+        "content": "## SPACE Framework Summary\n*Holistic view across all five dimensions*",
+        "mode": "markdown"
+      },
+      "pluginVersion": "8.4.3",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "datasource": "mysql",
+      "description": "Comprehensive SPACE metrics per engineer",
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "custom": {"align": "auto", "displayMode": "auto", "filterable": true},
+          "mappings": [],
+          "thresholds": {"mode": "absolute", "steps": [{"color": "green", "value": null}]}
+        },
+        "overrides": []
+      },
+      "gridPos": {"h": 14, "w": 24, "x": 0, "y": 102},
+      "id": 60,
+      "options": {
+        "footer": {"fields": "", "reducer": ["sum"], "show": true},
+        "showHeader": true,
+        "sortBy": [{"desc": true, "displayName": "Story Points"}]
+      },
+      "pluginVersion": "8.4.3",
+      "targets": [
+        {
+          "datasource": "mysql",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH \n_activity AS (\n  SELECT author_name, \n         COUNT(DISTINCT sha) as commits,\n         COUNT(DISTINCT DATE(authored_date)) as coding_days\n  FROM commits c\n  JOIN repo_commits rc ON c.sha = rc.commit_sha\n  JOIN project_mapping pm ON rc.repo_id = pm.row_id\n  WHERE pm.project_name IN (${project}) AND $__timeFilter(authored_date)\n    AND c.message NOT LIKE 'Merge %' AND c.message NOT LIKE 'Merged %'\n  GROUP BY author_name\n),\n_performance AS (\n  SELECT assignee_name as author_name,\n         COUNT(DISTINCT CASE WHEN status = 'DONE' THEN id END) as issues_resolved,\n         COALESCE(SUM(CASE WHEN status = 'DONE' THEN story_point ELSE 0 END), 0) as story_points,\n         COUNT(DISTINCT CASE WHEN type = 'BUG' AND status = 'DONE' THEN id END) as bugs_fixed\n  FROM issues i\n  JOIN board_issues bi ON i.id = bi.issue_id\n  JOIN boards b ON bi.board_id = b.id\n  JOIN project_mapping pm ON b.id = pm.row_id\n  WHERE pm.project_name IN (${project}) AND $__timeFilter(created_date)\n  GROUP BY assignee_name\n),\n_collaboration AS (\n  SELECT reviewer_name as author_name,\n         COUNT(DISTINCT pull_request_id) as prs_reviewed,\n         COUNT(*) as review_comments\n  FROM pull_request_comments prc\n  JOIN pull_requests pr ON prc.pull_request_id = pr.id\n  JOIN project_mapping pm ON pr.base_repo_id = pm.row_id\n  WHERE pm.project_name IN (${project}) AND $__timeFilter(prc.created_date)\n    AND prc.reviewer_name IS NOT NULL\n  GROUP BY reviewer_name\n),\n_efficiency AS (\n  SELECT author_name,\n         COUNT(DISTINCT id) as prs_merged,\n         ROUND(AVG(TIMESTAMPDIFF(HOUR, created_date, merged_date)), 1) as avg_pr_cycle_hrs\n  FROM pull_requests pr\n  JOIN project_mapping pm ON pr.base_repo_id = pm.row_id\n  WHERE pm.project_name IN (${project}) \n    AND status = 'MERGED'\n    AND $__timeFilter(merged_date)\n  GROUP BY author_name\n)\nSELECT \n  COALESCE(a.author_name, p.author_name, c.author_name, e.author_name) as 'Engineer',\n  COALESCE(a.commits, 0) as 'Commits (A)',\n  COALESCE(a.coding_days, 0) as 'Coding Days (S)',\n  COALESCE(p.issues_resolved, 0) as 'Issues Resolved (P)',\n  COALESCE(p.story_points, 0) as 'Story Points (P)',\n  COALESCE(p.bugs_fixed, 0) as 'Bugs Fixed (P)',\n  COALESCE(c.prs_reviewed, 0) as 'PRs Reviewed (C)',\n  COALESCE(c.review_comments, 0) as 'Review Comments (C)',\n  COALESCE(e.prs_merged, 0) as 'PRs Merged (E)',\n  COALESCE(e.avg_pr_cycle_hrs, 0) as 'Avg PR Cycle hrs (E)'\nFROM _activity a\nFULL OUTER JOIN _performance p ON a.author_name = p.author_name\nFULL OUTER JOIN _collaboration c ON COALESCE(a.author_name, p.author_name) = c.author_name\nFULL OUTER JOIN _efficiency e ON COALESCE(a.author_name, p.author_name, c.author_name) = e.author_name\nWHERE COALESCE(a.author_name, p.author_name, c.author_name, e.author_name) IS NOT NULL\n  AND COALESCE(a.author_name, p.author_name, c.author_name, e.author_name) != ''\nORDER BY COALESCE(p.story_points, 0) DESC\nLIMIT 30",
+          "refId": "A"
+        }
+      ],
+      "title": "SPACE Framework - Comprehensive Engineer Metrics",
+      "type": "table"
+    }
+  ],
+  "refresh": "",
+  "schemaVersion": 39,
+  "tags": ["SPACE Framework", "Developer Productivity", "Engineering Metrics"],
+  "templating": {
+    "list": [
+      {
+        "current": {"selected": false, "text": "All", "value": "$__all"},
+        "datasource": "mysql",
+        "definition": "SELECT DISTINCT project_name FROM project_mapping ORDER BY project_name",
+        "hide": 0,
+        "includeAll": true,
+        "label": "Project",
+        "multi": true,
+        "name": "project",
+        "options": [],
+        "query": "SELECT DISTINCT project_name FROM project_mapping ORDER BY project_name",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 1,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {"from": "now-30d", "to": "now"},
+  "timepicker": {},
+  "timezone": "",
+  "title": "SPACE Framework - Developer Productivity",
+  "uid": "space-metrics",
+  "version": 1,
+  "weekStart": ""
+}

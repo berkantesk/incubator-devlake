@@ -38,7 +38,7 @@ func CollectAdditionalFilemetrics(taskCtx plugin.SubTaskContext) errors.Error {
 		RawDataSubTaskArgs: *rawDataSubTaskArgs,
 		ApiClient:          data.ApiClient,
 		PageSize:           100,
-		UrlTemplate:        "measures/component_tree",
+		UrlTemplate:        "api/measures/component_tree",
 		Query: func(reqData *helper.RequestData) (url.Values, errors.Error) {
 			query := url.Values{}
 			query.Set("component", data.Options.ProjectKey)

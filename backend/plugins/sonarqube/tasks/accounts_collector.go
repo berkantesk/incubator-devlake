@@ -40,7 +40,7 @@ func CollectAccounts(taskCtx plugin.SubTaskContext) errors.Error {
 		RawDataSubTaskArgs: *rawDataSubTaskArgs,
 		ApiClient:          data.ApiClient,
 		PageSize:           100,
-		UrlTemplate:        "users/search",
+		UrlTemplate:        "api/users/search",
 		Query: func(reqData *helper.RequestData) (url.Values, errors.Error) {
 			query := url.Values{}
 			query.Set("p", fmt.Sprintf("%v", reqData.Pager.Page))

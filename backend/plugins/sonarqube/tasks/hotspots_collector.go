@@ -44,7 +44,7 @@ func CollectHotspots(taskCtx plugin.SubTaskContext) errors.Error {
 		ApiClient:          data.ApiClient,
 		PageSize:           100,
 		Incremental:        false,
-		UrlTemplate:        "hotspots/search",
+		UrlTemplate:        "api/hotspots/search",
 		Query: func(reqData *helper.RequestData) (url.Values, errors.Error) {
 			query := url.Values{}
 			// no time range

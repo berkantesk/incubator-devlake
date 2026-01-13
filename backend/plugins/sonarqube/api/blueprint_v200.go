@@ -126,12 +126,42 @@ func GetApiProject(
 	projectKey string,
 	apiClient plugin.ApiClient,
 ) (*models.SonarqubeApiProject, errors.Error) {
+	// Use components/show endpoint which requires less permissions than components/search
+	var resData struct {
+		Component models.SonarqubeApiProject `json:"component"`
+	}
+	query := url.Values{}
+	query.Set("component", projectKey)
+	res, err := apiClient.Get("api/components/show", query, nil)
+	if err != nil {
+		return nil, err
+	}
+	if res.StatusCode != http.StatusOK {
+		// Fallback to api/components/search if api/components/show fails
+		return getApiProjectFallback(projectKey, apiClient)
+	}
+	err = helper.UnmarshalResponse(res, &resData)
+	if err != nil {
+		return nil, err
+	}
+	if resData.Component.ProjectKey != "" {
+		return &resData.Component, nil
+	}
+	return nil, errors.BadInput.New(fmt.Sprintf("Cannot find project: %s", projectKey))
+}
+
+// Fallback function using api/components/search endpoint
+func getApiProjectFallback(
+	projectKey string,
+	apiClient plugin.ApiClient,
+) (*models.SonarqubeApiProject, errors.Error) {
 	var resData struct {
 		Data []models.SonarqubeApiProject `json:"components"`
 	}
 	query := url.Values{}
 	query.Set("q", projectKey)
-	res, err := apiClient.Get("projects/search", query, nil)
+	query.Set("qualifiers", "TRK")
+	res, err := apiClient.Get("api/components/search", query, nil)
 	if err != nil {
 		return nil, err
 	}

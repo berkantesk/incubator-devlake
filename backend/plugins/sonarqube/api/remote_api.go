@@ -48,12 +48,15 @@ func querySonarqubeProjects(
 	if page.Page == 0 {
 		page.Page = 1
 	}
-	res, err := apiClient.Get("components/search", url.Values{
+	res, err := apiClient.Get("api/components/search", url.Values{
 		"p":          {fmt.Sprintf("%v", page.Page)},
 		"ps":         {fmt.Sprintf("%v", page.PageSize)},
 		"q":          {keyword},
 		"qualifiers": {"TRK"},
 	}, nil)
+	if err != nil {
+		return
+	}
 
 	resBody := struct {
 		Paging struct {
@@ -64,34 +67,7 @@ func querySonarqubeProjects(
 		Components []*models.SonarqubeApiProject
 	}{}
 
-	if err == nil {
-		err = api.UnmarshalResponse(res, &resBody)
-	}
-
-	if err != nil || len(resBody.Components) == 0 {
-		// Fallback to projects/search for Global Analysis Token or older versions
-		res2, err2 := apiClient.Get("projects/search", url.Values{
-			"p":  {fmt.Sprintf("%v", page.Page)},
-			"ps": {fmt.Sprintf("%v", page.PageSize)},
-			"q":  {keyword},
-		}, nil)
-
-		if err2 == nil {
-			resBody2 := struct {
-				Paging struct {
-					PageIndex int `json:"pageIndex"`
-					PageSize  int `json:"pageSize"`
-					Total     int `json:"total"`
-				} `json:"paging"`
-				Components []*models.SonarqubeApiProject
-			}{}
-			if errUnmarshal := api.UnmarshalResponse(res2, &resBody2); errUnmarshal == nil {
-				resBody = resBody2
-				err = nil
-			}
-		}
-	}
-
+	err = api.UnmarshalResponse(res, &resBody)
 	if err != nil {
 		return
 	}

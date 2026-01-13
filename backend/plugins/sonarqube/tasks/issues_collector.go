@@ -76,7 +76,7 @@ func CollectIssues(taskCtx plugin.SubTaskContext) (err errors.Error) {
 		RawDataSubTaskArgs: *rawDataSubTaskArgs,
 		ApiClient:          data.ApiClient,
 		PageSize:           100,
-		UrlTemplate:        "issues/search",
+		UrlTemplate:        "api/issues/search",
 		Input:              iterator,
 		Query: func(reqData *helper.RequestData) (url.Values, errors.Error) {
 			query := url.Values{}
@@ -165,7 +165,7 @@ func CollectIssues(taskCtx plugin.SubTaskContext) (err errors.Error) {
 								logger.Info("split by dir, and it's issue count:[%d] and file path:[%s]", value.Count, value.Val)
 							} else {
 								// split it by dir when it's issue count > 10000
-								resWithPath, err := data.ApiClient.Get("issues/search", url.Values{
+								resWithPath, err := data.ApiClient.Get("api/issues/search", url.Values{
 									"componentKeys": {fmt.Sprintf("%v", data.Options.ProjectKey)},
 									"directories":   {value.Val},
 									"facets":        {"files"},

@@ -49,7 +49,7 @@ func testConnection(ctx context.Context, connection models.SonarqubeConn) (*plug
 		return nil, err
 	}
 
-	res, err := apiClient.Get("authentication/validate", nil, nil)
+	res, err := apiClient.Get("api/authentication/validate", nil, nil)
 	if err != nil {
 		return nil, err
 	}
