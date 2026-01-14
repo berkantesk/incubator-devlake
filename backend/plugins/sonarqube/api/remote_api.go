@@ -20,6 +20,7 @@ package api
 import (
 	"fmt"
 	"net/url"
+	"strings"
 
 	"github.com/apache/incubator-devlake/core/errors"
 	"github.com/apache/incubator-devlake/core/plugin"
@@ -48,13 +49,19 @@ func querySonarqubeProjects(
 	if page.Page == 0 {
 		page.Page = 1
 	}
-	res, err := apiClient.Get("api/components/search", url.Values{
+	query := url.Values{
 		"p":          {fmt.Sprintf("%v", page.Page)},
 		"ps":         {fmt.Sprintf("%v", page.PageSize)},
-		"q":          {keyword},
 		"qualifiers": {"TRK"},
-	}, nil)
+	}
+	// Only add search keyword if not empty
+	if strings.TrimSpace(keyword) != "" {
+		query.Set("q", keyword)
+	}
+	fmt.Printf("[DEBUG] Querying SonarQube projects with query: %v\n", query)
+	res, err := apiClient.Get("api/components/search", query, nil)
 	if err != nil {
+		err = errors.Default.Wrap(err, "failed to call SonarQube API")
 		return
 	}
 
@@ -64,7 +71,7 @@ func querySonarqubeProjects(
 			PageSize  int `json:"pageSize"`
 			Total     int `json:"total"`
 		} `json:"paging"`
-		Components []*models.SonarqubeApiProject
+		Components []*models.SonarqubeApiProject `json:"components"`
 	}{}
 
 	err = api.UnmarshalResponse(res, &resBody)

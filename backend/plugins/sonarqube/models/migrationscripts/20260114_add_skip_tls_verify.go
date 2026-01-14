@@ -17,28 +17,34 @@ limitations under the License.
 
 package migrationscripts
 
-import "github.com/apache/incubator-devlake/core/plugin"
+import (
+	"github.com/apache/incubator-devlake/core/context"
+	"github.com/apache/incubator-devlake/core/errors"
+	"github.com/apache/incubator-devlake/core/plugin"
+	"github.com/apache/incubator-devlake/helpers/migrationhelper"
+)
 
-// All return all the migration scripts
-func All() []plugin.MigrationScript {
-	return []plugin.MigrationScript{
-		new(addInitTables),
-		new(modifyCharacterSet),
-		new(expandProjectKey20230206),
-		new(addRawParamTableForScope),
-		new(addScopeConfigIdToProject),
-		new(modifyFileMetricsKeyLength),
-		new(modifyComponentLength),
-		new(addSonarQubeScopeConfig20231214),
-		new(modifyCommitCharacterType),
-		new(modifyCommitCharacterType0508),
-		new(updateSonarQubeScopeConfig20240614),
-		new(modifyNameLength),
-		new(changeIssueComponentType),
-		new(increaseProjectKeyLength),
-		new(addOrgToConn),
-		new(addIssueImpacts),
-		new(extendSonarqubeFieldSize),
-		new(addSkipTlsVerify),
-	}
+var _ plugin.MigrationScript = (*addSkipTlsVerify)(nil)
+
+type connection20260114 struct {
+	SkipTlsVerify bool
+}
+
+func (connection20260114) TableName() string {
+	return "_tool_sonarqube_connections"
+}
+
+type addSkipTlsVerify struct {
+}
+
+func (script *addSkipTlsVerify) Up(basicRes context.BasicRes) errors.Error {
+	return migrationhelper.AutoMigrateTables(basicRes, &connection20260114{})
+}
+
+func (*addSkipTlsVerify) Version() uint64 {
+	return 20260114093000
+}
+
+func (*addSkipTlsVerify) Name() string {
+	return "add skip_tls_verify to the connections table"
 }

@@ -83,6 +83,15 @@ func NewApiClientFromConnection(
 		return nil, err
 	}
 
+	// if connection wants to skip TLS verification (e.g., self-signed certificates)
+	if tlsSkipVerifier, ok := connection.(plugin.TlsSkipVerifier); ok {
+		if tlsSkipVerifier.ShouldSkipTlsVerify() {
+			if transport, ok := apiClient.client.Transport.(*http.Transport); ok {
+				transport.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+			}
+		}
+	}
+
 	// if connection needs to prepare the ApiClient, i.e. fetch token for future requests
 	if prepareApiClient, ok := connection.(plugin.PrepareApiClient); ok {
 		err = prepareApiClient.PrepareApiClient(apiClient)

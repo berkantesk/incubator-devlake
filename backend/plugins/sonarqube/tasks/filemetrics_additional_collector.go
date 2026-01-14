@@ -55,6 +55,7 @@ func CollectAdditionalFilemetrics(taskCtx plugin.SubTaskContext) errors.Error {
 			err := helper.UnmarshalResponse(res, &resData)
 			return resData.Data, err
 		},
+		AfterResponse: ignoreHTTPStatus403,
 	})
 	if err != nil {
 		return err

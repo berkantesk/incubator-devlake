@@ -18,6 +18,8 @@ limitations under the License.
 package tasks
 
 import (
+	"net/http"
+
 	"github.com/apache/incubator-devlake/core/errors"
 	"github.com/apache/incubator-devlake/core/plugin"
 	"github.com/apache/incubator-devlake/helpers/pluginhelper/api"
@@ -38,4 +40,17 @@ func CreateApiClient(taskCtx plugin.TaskContext, connection *models.SonarqubeCon
 	}
 
 	return asyncApiCLient, nil
+}
+
+// ignoreHTTPStatus403 ignores 403 Forbidden errors which occur when the access token
+// doesn't have sufficient permissions (e.g., Browse permission for file metrics).
+// This allows the pipeline to continue collecting other data instead of failing entirely.
+func ignoreHTTPStatus403(res *http.Response) errors.Error {
+	if res.StatusCode == http.StatusUnauthorized {
+		return errors.Unauthorized.New("authentication failed, please check your AccessToken")
+	}
+	if res.StatusCode == http.StatusForbidden {
+		return api.ErrIgnoreAndContinue
+	}
+	return nil
 }

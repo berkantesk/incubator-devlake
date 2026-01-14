@@ -51,6 +51,7 @@ type SonarqubeConn struct {
 	helper.RestConnection `mapstructure:",squash"`
 	SonarqubeAccessToken  `mapstructure:",squash"`
 	Organization          string `gorm:"serializer:json" json:"org" mapstructure:"org"`
+	SkipTlsVerify         bool   `json:"skipTlsVerify" mapstructure:"skipTlsVerify"`
 }
 
 func (connection SonarqubeConn) Sanitize() SonarqubeConn {
@@ -94,6 +95,11 @@ func (connection *SonarqubeConnection) MergeFromRequest(target *SonarqubeConnect
 
 func (connection *SonarqubeConnection) IsCloud() bool {
 	return connection.Endpoint == "https://sonarcloud.io/api/"
+}
+
+// ShouldSkipTlsVerify implements plugin.TlsSkipVerifier interface
+func (connection *SonarqubeConnection) ShouldSkipTlsVerify() bool {
+	return connection.SkipTlsVerify
 }
 
 const ORG = "org"

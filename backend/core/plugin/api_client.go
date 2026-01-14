@@ -45,3 +45,9 @@ type ApiClient interface {
 	Get(path string, query url.Values, headers http.Header) (*http.Response, errors.Error)
 	Post(path string, query url.Values, body interface{}, headers http.Header) (*http.Response, errors.Error)
 }
+
+// TlsSkipVerifier is an optional interface that connections can implement
+// to indicate that TLS certificate verification should be skipped
+type TlsSkipVerifier interface {
+	ShouldSkipTlsVerify() bool
+}
