@@ -339,7 +339,7 @@
           "datasource": "mysql",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  ROUND(100.0 * SUM(CASE WHEN i.status = 'DONE' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as value\nFROM issues i\nJOIN board_issues bi ON i.id = bi.issue_id\nJOIN boards b ON bi.board_id = b.id\nJOIN project_mapping pm ON b.id = pm.row_id AND pm.`table` = 'boards'\nWHERE pm.project_name IN (${project})\n  AND i.type = 'BUG'\n  AND $__timeFilter(i.created_date)",
+          "rawSql": "SELECT \n  ROUND(100.0 * SUM(CASE WHEN i.status = 'DONE' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as value\nFROM issues i\nWHERE i.type = 'BUG'\n  AND $__timeFilter(i.created_date)",
           "refId": "A"
         }
       ],
@@ -403,7 +403,7 @@
           "datasource": "mysql",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  ROUND(100.0 * SUM(CASE WHEN p.result = 'SUCCESS' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as value\nFROM cicd_pipelines p\nJOIN cicd_pipeline_commits pc ON p.id = pc.pipeline_id\nJOIN commits c ON pc.commit_sha = c.sha\nJOIN repo_commits rc ON c.sha = rc.commit_sha\nJOIN project_mapping pm ON rc.repo_id = pm.row_id AND pm.`table` = 'repos'\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(p.created_date)",
+          "rawSql": "SELECT \n  ROUND(100.0 * SUM(CASE WHEN p.result = 'SUCCESS' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as value\nFROM cicd_pipelines p\nWHERE p.result IS NOT NULL\n  AND $__timeFilter(p.created_date)",
           "refId": "A"
         }
       ],
@@ -467,7 +467,7 @@
           "datasource": "mysql",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  ROUND(100.0 - (100.0 * COUNT(CASE WHEN cq.severity IN ('BLOCKER', 'CRITICAL') THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0)), 1) as value\nFROM cq_issues cq\nWHERE $__timeFilter(cq.created_date)",
+          "rawSql": "SELECT \n  ROUND(100.0 - (100.0 * COALESCE(SUM(CASE WHEN cq.severity IN ('BLOCKER', 'CRITICAL') THEN 1 ELSE 0 END), 0) / NULLIF(COUNT(*), 1)), 1) as value\nFROM cq_issues cq\nWHERE cq.created_date IS NOT NULL",
           "refId": "A"
         }
       ],
@@ -522,7 +522,7 @@
           "datasource": "mysql",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  COALESCE(SUM(i.story_point), 0) as value\nFROM issues i\nJOIN board_issues bi ON i.id = bi.issue_id\nJOIN boards b ON bi.board_id = b.id\nJOIN project_mapping pm ON b.id = pm.row_id AND pm.`table` = 'boards'\nWHERE pm.project_name IN (${project})\n  AND i.status = 'DONE'\n  AND $__timeFilter(i.resolution_date)",
+          "rawSql": "SELECT \n  COALESCE(SUM(i.story_point), 0) as value\nFROM issues i\nWHERE i.status = 'DONE'\n  AND $__timeFilter(i.resolution_date)",
           "refId": "A"
         }
       ],
