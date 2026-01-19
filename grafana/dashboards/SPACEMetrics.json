@@ -1216,7 +1216,7 @@
           "datasource": "mysql",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  prr.user_name as 'Reviewer',\n  COUNT(DISTINCT prr.pull_request_id) as 'PRs Reviewed',\n  COUNT(*) as 'Comments Given',\n  ROUND(COUNT(*) / NULLIF(COUNT(DISTINCT prr.pull_request_id), 0), 1) as 'Avg Comments/PR',\n  COUNT(DISTINCT pr.author_name) as 'Authors Helped'\nFROM pull_request_reviewers prr\nJOIN pull_requests pr ON prr.pull_request_id = pr.id\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(pr.created_date)\n  AND prr.user_name IS NOT NULL AND prr.user_name != ''\nGROUP BY prr.user_name\nHAVING COUNT(DISTINCT prr.pull_request_id) > 0\nORDER BY COUNT(DISTINCT prr.pull_request_id) DESC\nLIMIT 15",
+          "rawSql": "SELECT \n  COALESCE(ga.name, prr.user_name) as 'Reviewer',\n  COUNT(DISTINCT prr.pull_request_id) as 'PRs Reviewed',\n  COUNT(*) as 'Comments Given',\n  ROUND(COUNT(*) / NULLIF(COUNT(DISTINCT prr.pull_request_id), 0), 1) as 'Avg Comments/PR',\n  COUNT(DISTINCT pr.author_name) as 'Authors Helped'\nFROM pull_request_reviewers prr\nJOIN pull_requests pr ON prr.pull_request_id = pr.id\nLEFT JOIN _tool_gitlab_accounts ga ON CAST(REGEXP_SUBSTR(prr.user_id, '[0-9]+$') AS UNSIGNED) = ga.gitlab_id\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(pr.created_date)\n  AND prr.user_name IS NOT NULL AND prr.user_name != ''\nGROUP BY COALESCE(ga.name, prr.user_name)\nHAVING COUNT(DISTINCT prr.pull_request_id) > 0\nORDER BY COUNT(DISTINCT prr.pull_request_id) DESC\nLIMIT 15",
           "refId": "A"
         }
       ],
@@ -1278,7 +1278,7 @@
           "datasource": "mysql",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  pr.author_name as 'PR Author',\n  prr.user_name as 'Reviewer',\n  COUNT(*) as 'Interactions',\n  COUNT(DISTINCT pr.id) as 'PRs'\nFROM pull_request_reviewers prr\nJOIN pull_requests pr ON prr.pull_request_id = pr.id\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(pr.created_date)\n  AND prr.user_name IS NOT NULL AND prr.user_name != ''\n  AND pr.author_name IS NOT NULL AND pr.author_name != ''\n  AND pr.author_name != prr.user_name\nGROUP BY pr.author_name, prr.user_name\nHAVING COUNT(*) > 0\nORDER BY COUNT(*) DESC\nLIMIT 20",
+          "rawSql": "SELECT \n  COALESCE(ga_author.name, pr.author_name) as 'PR Author',\n  COALESCE(ga_reviewer.name, prr.user_name) as 'Reviewer',\n  COUNT(*) as 'Interactions',\n  COUNT(DISTINCT pr.id) as 'PRs'\nFROM pull_request_reviewers prr\nJOIN pull_requests pr ON prr.pull_request_id = pr.id\nLEFT JOIN _tool_gitlab_accounts ga_author ON CAST(REGEXP_SUBSTR(pr.author_id, '[0-9]+$') AS UNSIGNED) = ga_author.gitlab_id\nLEFT JOIN _tool_gitlab_accounts ga_reviewer ON CAST(REGEXP_SUBSTR(prr.user_id, '[0-9]+$') AS UNSIGNED) = ga_reviewer.gitlab_id\nJOIN project_mapping pm ON pr.base_repo_id = pm.row_id\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(pr.created_date)\n  AND prr.user_name IS NOT NULL AND prr.user_name != ''\n  AND pr.author_name IS NOT NULL AND pr.author_name != ''\n  AND pr.author_name != prr.user_name\nGROUP BY COALESCE(ga_author.name, pr.author_name), COALESCE(ga_reviewer.name, prr.user_name)\nHAVING COUNT(*) > 0\nORDER BY COUNT(*) DESC\nLIMIT 20",
           "refId": "A"
         }
       ],
