@@ -403,7 +403,7 @@
           "datasource": "mysql",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  ROUND(100.0 * SUM(CASE WHEN p.result = 'SUCCESS' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as value\nFROM cicd_pipelines p\nJOIN project_mapping pm ON p.cicd_scope_id = pm.row_id AND pm.`table` = 'cicd_scopes'\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(p.created_date)",
+          "rawSql": "SELECT \n  ROUND(100.0 * SUM(CASE WHEN p.result = 'SUCCESS' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as value\nFROM cicd_pipelines p\nJOIN cicd_pipeline_commits pc ON p.id = pc.pipeline_id\nJOIN commits c ON pc.commit_sha = c.sha\nJOIN repo_commits rc ON c.sha = rc.commit_sha\nJOIN project_mapping pm ON rc.repo_id = pm.row_id AND pm.`table` = 'repos'\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(p.created_date)",
           "refId": "A"
         }
       ],
@@ -467,7 +467,7 @@
           "datasource": "mysql",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  ROUND(100.0 - (100.0 * COUNT(CASE WHEN cq.severity IN ('BLOCKER', 'CRITICAL') THEN 1 END) / NULLIF(COUNT(*), 0)), 1) as value\nFROM cq_issues cq\nJOIN project_mapping pm ON cq.project_key = pm.row_id AND pm.`table` = 'cq_projects'\nWHERE pm.project_name IN (${project})\n  AND $__timeFilter(cq.created_date)",
+          "rawSql": "SELECT \n  ROUND(100.0 - (100.0 * COUNT(CASE WHEN cq.severity IN ('BLOCKER', 'CRITICAL') THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0)), 1) as value\nFROM cq_issues cq\nWHERE $__timeFilter(cq.created_date)",
           "refId": "A"
         }
       ],
