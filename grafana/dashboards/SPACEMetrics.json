@@ -339,7 +339,7 @@
           "datasource": "mysql",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  ROUND(100.0 * SUM(CASE WHEN i.status = 'DONE' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1) as value\nFROM issues i\nWHERE i.type = 'BUG'\n  AND $__timeFilter(i.created_date)",
+          "rawSql": "SELECT \n  COALESCE(ROUND(100.0 * SUM(CASE WHEN i.status = 'DONE' THEN 1 ELSE 0 END) / NULLIF(COUNT(*), 0), 1), 0) as value\nFROM issues i\nLEFT JOIN board_issues bi ON i.id = bi.issue_id\nLEFT JOIN boards b ON bi.board_id = b.id\nWHERE i.type = 'BUG'\n  AND (i.created_date IS NOT NULL OR i.updated_at IS NOT NULL)",
           "refId": "A"
         }
       ],
